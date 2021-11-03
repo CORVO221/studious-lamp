@@ -1,0 +1,56 @@
+clc
+clear;      
+load('img_restoration.mat')
+[width,height]=size(I1);
+%% NORMALIZE
+I11=I1/255;
+I22=I2/255;
+%% Adding motion blur
+H = fspecial('motion', 18, 90);
+motion_blur = imfilter(I11, H, 'conv', 'circular');
+%% Adding Gaussian white noise
+noise_mean=0;  % mean of noise
+noise_var=0.001; % variance of noise
+blur_noise=imnoise(motion_blur,'gaussian',noise_mean,noise_var);
+%% Inversing filter
+i1f=fft2(I11);
+motion_blurf=fft2(motion_blur);
+motion_blur_noisef=fft2(blur_noise);
+Hf=motion_blurf./i1f;
+recovered=ifft2(motion_blur_noisef./Hf);
+figure('name','motion blur/noise');
+subplot(1,4,2);imshow(motion_blur,[]);title('motion blur');
+subplot(1,4,3);imshow(blur_noise,[]);title('motion blur+noise');
+subplot(1,4,1);imshow(I11,[]);title('origin');
+subplot(1,4,4);imshow(recovered,[]);title('recovered');
+%% Wiener filter
+
+% 1.using matlab built=in function "deconvwnr"
+% signal_var=var(I11(:));
+% estimate_nsr=noise_var/signal_var;   %estimating nsr
+% restore_with_noise=deconvwnr(motion_blur_noise,H_motion,estimate_nsr);  
+% figure('name','motion blur/noise/recovered');
+% subplot(1,4,2);imshow(motion_blur,[]);title('motion blur');
+% subplot(1,4,3);imshow(motion_blur_noise,[]);title('motion blur+noise');
+% subplot(1,4,1);imshow(I11,[]);title('origin');
+% subplot(1,4,4);imshow(restore_with_noise,[]);title('wiener');
+
+
+% 2.implementing manually
+I1_FFT=fft2(I11);
+blur_FFT=fft2(motion_blur);
+blur_noise_FFT=fft2(blur_noise);
+H_FFT=blur_FFT./I1_FFT;
+noise=blur_noise-motion_blur;
+noise_FFT=fft2(noise);
+nsr=abs(noise_FFT).^2./(abs(I1_FFT).^2);
+WIENER=abs(H_FFT).^2./(H_FFT.*(abs(H_FFT).^2+nsr));
+restore_FFT=blur_noise_FFT.*WIENER;
+restore=ifft2(restore_FFT);
+subplot(1,4,2);imshow(motion_blur,[]);title('motion blur');
+subplot(1,4,3);imshow(blur_noise,[]);title('motion blur+noise');
+subplot(1,4,1);imshow(I11,[]);title('origin');
+subplot(1,4,4);imshow(restore,[]);title('wiener');
+
+
+
